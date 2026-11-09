@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#17272b">
+<title>Lendas de Kage — Vila Ninja</title>
+<style>
+:root{--bg:#101a1e;--panel:#1a2d30;--line:#49645a;--gold:#f2c76b;--text:#f6f0d9}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Arial,sans-serif;overscroll-behavior:none}
+body{display:flex;justify-content:center;padding:10px}
+#app{width:min(100%,900px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+h1{font-size:clamp(21px,5vw,30px);margin:0;color:var(--gold);letter-spacing:.5px}
+#saveTag{font-size:11px;color:#b8d5b7}
+#screen{position:relative;border:5px solid #8fa77a;border-radius:7px;overflow:hidden;background:#365b43;box-shadow:0 8px 28px #0008, inset 0 0 0 2px #203b31, 0 0 0 2px #263d31}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;background:#477b48;filter:saturate(1.16) contrast(1.07)}
+#stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+.stat{background:#203337;border:1px solid #344e4b;border-radius:7px;padding:7px 6px;font-size:12px;text-align:center}
+.stat b{display:block;color:#f6d58a;font-size:14px}
+#notice{background:#203337;border:1px solid #344e4b;border-radius:7px;padding:8px 10px;min-height:38px;font-size:13px;color:#f5dfa0}
+#controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;align-items:center}
+#pad{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,43px);gap:4px;justify-content:center}
+.ctrl,button{border:1px solid #6e8c70;background:#315047;color:#fff;border-radius:8px;font-weight:700;touch-action:none;user-select:none}
+.ctrl{font-size:19px}
+.ctrl:active,button:active{background:#597d60;transform:translateY(1px)}
+#actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+button{padding:11px 8px;font-size:13px;box-shadow:0 3px 0 #172b27}
+button.gold{background:#bd9144;color:#201b12;border-color:#e5c16d}
+#menu{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+#menu button{flex:1}
+small.help{display:block;color:#b8c9b7;font-size:11px;line-height:1.45;margin:9px 2px}
+#overlay{display:none;position:absolute;inset:0;background:#091316dc;align-items:center;justify-content:center;padding:12px}
+#dialog{width:min(100%,460px);max-height:95%;overflow:auto;background:#1d3334;border:3px solid #d3aa59;border-radius:10px;padding:15px;box-shadow:0 8px 30px #000b}
+#dialog h2{margin:0 0 8px;color:#ffda8c;font-size:20px}
+#dialog p{font-size:14px;line-height:1.5;margin:7px 0 12px}
+#dialog .choices{display:flex;gap:7px;flex-wrap:wrap}
+#dialog button{flex:1;min-width:115px}
+#dialog button.alt{background:#526c63}
+@media(min-width:650px){#controls{max-width:520px;margin:12px auto}#stats{gap:9px}.stat{font-size:14px;padding:9px}}
+ 
+#touchHud{position:absolute;inset:0;pointer-events:none;z-index:4}
+#stick{position:absolute;left:4%;bottom:7%;width:clamp(92px,26%,142px);aspect-ratio:1;border-radius:50%;border:4px solid #d8e6e7cc;background:radial-gradient(circle,#2448f5 0%,#1728bd 58%,#14245d 100%);box-shadow:inset 0 0 10px #fff8,0 3px 12px #0009;pointer-events:auto;touch-action:none}
+#stick:after{content:"";position:absolute;inset:8px;border:1px solid #dce8ff88;border-radius:50%}
+#stickKnob{position:absolute;left:50%;top:50%;width:38%;height:38%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 35% 30%,#8da9ff,#3348d8 65%,#18248d);border:2px solid #dce7ff;box-shadow:0 2px 7px #0009}
+#combatButtons{position:absolute;right:4%;bottom:7%;display:flex;flex-direction:column;gap:12px;pointer-events:auto}
+#combatButtons button{width:clamp(64px,15vw,88px);height:clamp(64px,15vw,88px);border-radius:50%;font-size:30px;color:#fff;background:radial-gradient(circle at 35% 30%,#526cff,#1728a7 70%,#101b5c);border:4px solid #d8e6e7;box-shadow:inset 0 0 8px #fff9,0 3px 12px #0009;padding:0}
+#combatButtons #runBtn{font-size:27px}
+#pad{display:none}
+#actions{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:520px){body{padding:4px}#app{width:100%}#screen{border-width:3px}#stats{gap:3px}.stat{font-size:10px;padding:5px 2px}.stat b{font-size:12px}#controls{grid-template-columns:1fr}#actions{grid-template-columns:repeat(4,1fr)}#actions button{font-size:10px;padding:8px 2px}}
+</style>
+</head>
+<body>
+<div id="app">
+<header><h1>⚔ LENDAS DE KAGE</h1><span id="saveTag">● salvamento local</span></header>
+<div id="screen">
+<canvas id="game" width="704" height="396" aria-label="Mapa de Lendas de Kage"></canvas>
+<div id="touchHud">
+ <div id="stick" aria-label="Analógico virtual"><div id="stickKnob"></div></div>
+ <div id="combatButtons"><button id="swordBtn" aria-label="Atacar com espada" title="Atacar com espada">⚔</button><button id="runBtn" aria-label="Correr">➤</button></div>
+</div>
+<div id="overlay"><section id="dialog"></section></div>
+</div>
+<section id="stats">
+ <div class="stat">❤️ VIDA<b id="hp">30 / 30</b></div>
+ <div class="stat">🔷 CHAKRA<b id="chakra">12 / 12</b></div>
+ <div class="stat">🪙 RYOS<b id="ryos">0</b></div>
+ <div class="stat">⭐ NÍVEL<b id="level">1</b></div>
+</section>
+<div id="notice">Bem-vindo! Encontre a Mestra Hana, perto da casa grande, e toque em AÇÃO.</div>
+<section id="controls">
+ <div id="pad" aria-label="Controles de movimento">
+  <span></span><button class="ctrl" data-dir="up">▲</button><span></span>
+  <button class="ctrl" data-dir="left">◀</button><button class="ctrl" data-dir="down">▼</button><button class="ctrl" data-dir="right">▶</button>
+ </div>
+ <div id="actions">
+  <button class="gold" id="action">AÇÃO / FALAR</button>
+  <button id="rest">DESCANSAR</button>
+  <button id="bag">MOCHILA</button>
+  <button id="missions">MISSÕES</button>
+ </div>
+</section>
+<div id="menu">
+ <button id="save">SALVAR</button><button id="reset">NOVO JOGO</button>
+</div>
+<small class="help">Pixel art em camadas com personagens animados, vegetação detalhada, construções orientais, reflexos e partículas ambientais. Mundo expandido com 6 regiões: Bosque Esmeralda, Vila da Folha, Cordilheira do Norte, Fazenda do Leste, Praia do Lago Cristalino e Floresta Profunda. No computador: WASD/setas, E para interagir e Espaço para descansar. No celular: use o analógico azul, espada para atacar/interagir e botão de corrida. Inimigos patrulham, perseguem e podem ser derrotados para ganhar ryos e experiência.</small>
+</div>
+<script>
+(()=> {
+"use strict";
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const W=704,H=396,T=32,C=84,R=60, WORLD_W=C*T, WORLD_H=R*T;
+let camera={x:0,y:0},currentRegion="Vila da Folha";
+const $=id=>document.getElementById(id);
+// Mundo expandido: 84 x 60 blocos, dividido em regiões exploráveis.
+const world=Array.from({length:R},()=>Array(C).fill("."));
+let seed=20261109;
+function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+function put(x,y,ch){if(x>0&&y>0&&x<C-1&&y<R-1)world[y][x]=ch;}
+function roadH(x1,x2,y){for(let x=Math.min(x1,x2);x<=Math.max(x1,x2);x++){put(x,y,"=");if(y+1<R-1&&x%3===0)put(x,y+1,"=");}}
+function roadV(x,y1,y2){for(let y=Math.min(y1,y2);y<=Math.max(y1,y2);y++){put(x,y,"=");if(x+1<C-1&&y%3===0)put(x+1,y,"=");}}
+// Mata e pedras espalhadas nas bordas; trilhas e clareiras ficam livres.
+for(let y=1;y<R-1;y++)for(let x=1;x<C-1;x++){
+  if(y<10 && rand()<.20)put(x,y,"R");
+  else if(x<16 && rand()<.19)put(x,y,"t");
+  else if(x>46 && y<31 && rand()<.08)put(x,y,"t");
+  else if(y>31 && rand()<.09)put(x,y,"f");
+  else if(x>62 && y>12 && rand()<.22)put(x,y,"t");
+  else if(x>62 && y>12 && rand()<.025)put(x,y,"R");
+}
+// Rio Esmeralda: posicionado à esquerda da praça inicial, como na referência.
+// A câmera do início mostra simultaneamente o rio, o caminho central e a casa.
+for(let y=1;y<R-1;y++){
+  for(let x=18;x<=23;x++)put(x,y,"~");
+  put(17,y,"f");put(24,y,"f");
+}
+for(let y=3;y<R-3;y+=9){put(20,y,".");put(21,y,".");}
+// Ponte de madeira atravessando o rio na parte superior da praça.
+for(let x=17;x<=24;x++)put(x,18,"B");
+// Estradas que conectam as expansões do mundo.
+roadH(5,59,21);roadV(31,5,38);roadH(12,51,10);roadH(8,55,32);roadV(15,10,34);roadV(48,10,34);
+// Vila central e construções.
+for(let y=14;y<=28;y++)for(let x=20;x<=42;x++)if(world[y][x]==="t"||world[y][x]==="R")put(x,y,".");
+function building(x,y,w,h){for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)put(xx,yy,"H");}
+building(23,16,3,3);building(37,16,3,3);building(23,25,3,2);
+// Fazenda oriental: canteiros, cercas e celeiro.
+for(let y=15;y<29;y++)for(let x=50;x<60;x++)if((x+y)%2===0)put(x,y,"c");
+building(53,11,4,3);
+// Montanhas ao norte e entrada de caverna.
+for(let y=1;y<8;y++)for(let x=24;x<39;x++)if((x+y)%3!==0)put(x,y,"R");
+put(34,5,"C");
+// Lago e praia ao sul.
+for(let y=35;y<41;y++)for(let x=27;x<37;x++)put(x,y,"~");
+for(let x=24;x<40;x++){put(x,34,"f");put(x,41,"f");}
+// Limpa trilhas depois de posicionar os biomas.
+roadH(5,59,21);roadV(31,5,38);roadH(8,55,32);roadV(15,10,34);roadV(48,10,34);
+const map=world.map(row=>row.join(""));
+const fresh={x:31*T+16,y:26*T+16};
+const cave={x:34*T+16,y:5*T+16,w:24,h:24};
+const hana={x:26*T+8,y:20*T+8,w:16,h:20,name:"Mestra Hana",kind:"hana",color:"#d9a94d"};
+const ren={x:35*T+8,y:22*T+8,w:16,h:20,name:"Aprendiz Ren",kind:"ren",color:"#b87991"};
+const villagers=[
+ {x:18*T+8,y:15*T+8,w:16,h:20,name:"Guarda Taro",kind:"villager",color:"#638d69"},
+ {x:55*T+8,y:29*T+8,w:16,h:20,name:"Nina",kind:"villager",color:"#bd7b9b"},
+ {x:69*T+8,y:43*T+8,w:16,h:20,name:"Explorador Kai",kind:"villager",color:"#b18a53"}
+];
+const rogue={x:12*T+8,y:17*T+8,w:16,h:20,name:"Ninja renegado",kind:"rogue",color:"#4b536e"};
+const player={x:30*T+8,y:21*T+8,w:16,h:20,face:"down"};
+const enemies=[
+ {id:1,x:17*T+8,y:25*T+8,w:18,h:18,name:"Javali selvagem",kind:"boar",hp:18,maxHp:18,damage:2,speed:.72,aggro:145,dir:1,phase:0,alive:true},
+ {id:2,x:21*T+8,y:35*T+8,w:18,h:20,name:"Bandido da mata",kind:"bandit",hp:24,maxHp:24,damage:3,speed:.82,aggro:170,dir:-1,phase:1,alive:true},
+ {id:3,x:66*T+8,y:37*T+8,w:18,h:20,name:"Ninja das sombras",kind:"shadow",hp:32,maxHp:32,damage:4,speed:1.02,aggro:195,dir:1,phase:2,alive:true},
+ {id:4,x:57*T+8,y:7*T+8,w:18,h:18,name:"Lobo cinzento",kind:"wolf",hp:20,maxHp:20,damage:3,speed:.95,aggro:155,dir:-1,phase:3,alive:true},
+ {id:5,x:43*T+8,y:43*T+8,w:18,h:20,name:"Renegado errante",kind:"bandit",hp:26,maxHp:26,damage:3,speed:.86,aggro:175,dir:1,phase:4,alive:true}
+];
+let attackUntil=0,attackCooldown=0,hitFlash=0;
+const initial=()=>({hp:30,maxHp:30,chakra:12,maxChakra:12,ryos:0,level:1,xp:0,quest:0,potions:1,won:false,caveLoot:false,harvested:0});
+let s=initial(),held={},dialog=false,battle=false,enemyHp=22,enemyMax=22,enemyName="Ren",lastSave=0;
+try{const old=JSON.parse(localStorage.getItem("lendasKage_v2"));if(old){s={...s,...old};if(old.x!=null&&old.y!=null&&old.x<640&&old.y<416){player.x=30*T+8;player.y=21*T+8;}else{if(old.x!=null)player.x=Math.max(32,Math.min(WORLD_W-48,old.x));if(old.y!=null)player.y=Math.max(32,Math.min(WORLD_H-48,old.y));}}}catch(e){}
+const say=t=>$("notice").textContent=t;
+function save(){try{localStorage.setItem("lendasKage_v2",JSON.stringify({...s,x:player.x,y:player.y}));$("saveTag").textContent="● salvo";}catch(e){$("saveTag").textContent="salvamento indisponível";}}
+function hud(){$("hp").textContent=`${s.hp} / ${s.maxHp}`;$("chakra").textContent=`${s.chakra} / ${s.maxChakra}`;$("ryos").textContent=s.ryos;$("level").textContent=s.level;}
+function tile(px,py){return map[Math.floor(py/T)]?.[Math.floor(px/T)]||"#";}
+function solid(px,py){return ["#","H","t","R","~"].includes(tile(px,py));}
+function blocked(x,y){return solid(x,y)||solid(x+player.w-1,y)||solid(x,y+player.h-1)||solid(x+player.w-1,y+player.h-1);}
+function dist(a,b){return Math.hypot(a.x+a.w/2-(b.x+b.w/2),a.y+a.h/2-(b.y+b.h/2));}
+function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h);}
+function drawTile(ch,x,y){
+  // Base de terreno com textura pixel-art determinística.
+  if(ch==="#"){
+    rect(x,y,32,32,"#263f35");
+    rect(x,y,32,5,"#52744b");
+    rect(x+3,y+7,5,3,"#385b42");
+    rect(x+21,y+19,7,3,"#314d3b");
+    rect(x+10,y+26,4,2,"#668052");
+  }else if(ch==="g"){
+    rect(x,y,32,32,"#477b48");
+    rect(x,y+27,32,5,"#3e7044");
+    rect(x+4,y+6,3,3,"#80a95a");
+    rect(x+22,y+17,3,3,"#8db45f");
+    rect(x+13,y+24,2,2,"#b1bd65");
+    rect(x+27,y+5,2,2,"#365f3c");
+  }else if(ch==="H"){
+    rect(x,y,32,32,"#79513a");
+    rect(x,y,32,7,"#d2a15b");
+    rect(x+2,y+7,28,4,"#a96d45");
+    rect(x+4,y+12,24,17,"#c18b58");
+    rect(x+6,y+14,20,13,"#d2a16a");
+    rect(x+11,y+17,10,12,"#503b31");
+    rect(x+13,y+19,6,10,"#79543a");
+    rect(x+4,y+11,3,18,"#8d5a3d");
+    rect(x+25,y+11,3,18,"#8d5a3d");
+    rect(x+3,y+29,26,2,"#493d30");
+    // Telhado em duas águas, vigas, janelas e soleira.
+    rect(x+1,y+3,30,3,"#694331");rect(x+4,y+1,24,3,"#9b5e3e");
+    rect(x+7,y+0,18,2,"#c17b4b");rect(x+3,y+5,3,5,"#e1b56d");
+    rect(x+26,y+5,3,5,"#744632");
+    rect(x+6,y+15,5,6,"#38535a");rect(x+7,y+16,3,4,"#9cc4bd");
+    rect(x+21,y+15,5,6,"#38535a");rect(x+22,y+16,3,4,"#9cc4bd");
+    rect(x+12,y+27,8,2,"#d6aa70");
+  }else if(ch==="t"){
+    rect(x,y,32,32,"#477b48");
+    rect(x+8,y+24,16,7,"#795638");
+    rect(x+5,y+8,22,19,"#28583b");
+    rect(x+2,y+12,28,13,"#326b42");
+    rect(x+7,y+5,18,18,"#397849");
+    rect(x+10,y+8,5,4,"#559354");
+    rect(x+21,y+14,4,3,"#244c35");
+    rect(x+13,y+26,7,3,"#795638");
+    // Copa em camadas, com volumes de folhas e contorno sombreado.
+    rect(x+4,y+11,6,8,"#28583b");rect(x+22,y+9,6,9,"#28583b");
+    rect(x+8,y+3,16,5,"#326b42");rect(x+11,y+1,10,4,"#397849");
+    rect(x+5,y+14,5,5,"#397849");rect(x+22,y+15,5,5,"#397849");
+    rect(x+10,y+6,4,3,"#70a85b");rect(x+17,y+9,4,3,"#5d9a52");
+    rect(x+7,y+19,5,3,"#4a8950");rect(x+20,y+20,5,3,"#326b42");
+  }else if(ch==="F"){
+    rect(x,y,32,32,"#477b48");
+    rect(x+2,y+3,28,26,"#4d9eaa");
+    rect(x+5,y+6,22,20,"#70c2c2");
+    rect(x+8,y+9,16,14,"#83d1c8");
+    rect(x+5,y+5,5,2,"#c2edcf");
+    rect(x+22,y+22,5,2,"#c2edcf");
+    rect(x+14,y+12,4,2,"#d8f1d2");
+    rect(x+13,y+18,6,2,"#d8f1d2");
+    ctx.strokeStyle="#d5f4df";ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(x+16,y+16,12,0,Math.PI*2);ctx.stroke();
+  }else if(ch==="B"){
+    rect(x,y,32,32,"#398da5");
+    rect(x,y+3,32,26,"#8b623d");rect(x,y+5,32,4,"#d2a05e");
+    rect(x,y+13,32,4,"#b77c45");rect(x,y+22,32,4,"#d2a05e");
+    for(let k=3;k<32;k+=7){rect(x+k,y+4,2,23,"#69462f");rect(x+k+2,y+7,2,2,"#e2b875");}
+  }else if(ch==="~"){
+    rect(x,y,32,32,"#247bb2");rect(x+3,y+7,13,2,"#8bd4e8");rect(x+17,y+20,11,2,"#75c5df");rect(x+8,y+25,7,2,"#1e6399");
+    if(((Math.floor(x/32)*7+Math.floor(y/32)*11)%17)===0){
+      ctx.fillStyle="#2c9c63";ctx.beginPath();ctx.ellipse(x+16,y+17,8,5,0,0,Math.PI*2);ctx.fill();
+      rect(x+14,y+12,4,4,"#ef9dbd");rect(x+12,y+14,3,3,"#f6c6d4");rect(x+17,y+14,3,3,"#fff0c5");
+    }
+  }else if(ch==="="){
+    rect(x,y,32,32,"#b49a69");rect(x,y+26,32,6,"#987b51");rect(x+5,y+7,4,2,"#d0b985");rect(x+22,y+18,5,2,"#8b704b");
+  }else if(ch==="c"){
+    rect(x,y,32,32,"#795f3e");rect(x+3,y+5,26,3,"#a88a53");rect(x+6,y+12,20,3,"#4f813e");rect(x+9,y+9,3,8,"#80a94d");rect(x+21,y+9,3,8,"#80a94d");
+  }else if(ch==="R"){
+    rect(x,y,32,32,"#68736b");rect(x+4,y+9,24,18,"#8d9a8d");rect(x+8,y+4,16,18,"#aeb8a4");rect(x+12,y+8,5,4,"#d2d8bd");rect(x+5,y+26,22,3,"#4c5b50");
+  }else if(ch==="C"){
+    rect(x,y,32,32,"#66705f");rect(x+3,y+4,26,26,"#9aa08a");rect(x+7,y+9,18,21,"#202c2b");rect(x+10,y+14,12,16,"#101919");
+  }else if(ch==="f"){
+    rect(x,y,32,32,"#477b48");rect(x+7,y+9,4,4,"#f2d477");rect(x+20,y+19,4,4,"#e7e0bd");rect(x+9,y+13,2,5,"#3b7043");rect(x+22,y+23,2,4,"#3b7043");
+  }else{
+    rect(x,y,32,32,"#78945a");
+    rect(x,y+28,32,4,"#69854f");
+    rect(x+6,y+8,2,2,"#a6ae65");
+    rect(x+23,y+20,2,2,"#a6ae65");
+    rect(x+15,y+4,2,2,"#627f4b");
+  }
+}
+
+
+// Camada extra de pixel art: microtexturas, luz, folhas, pedrinhas e reflexos.
+// Tudo é determinístico pela posição do mapa para não piscar durante a animação.
+function drawWorldDetails(ch, tx, ty, wx, wy){
+  const n=(a,b,m)=>((a*374761393+b*668265263)>>>0)%m;
+  const px=(a,b,w,h,c)=>rect(tx+a,ty+b,w,h,c);
+
+  if(ch==="." || ch==="g"){
+    // Variação sutil de grama em pequenos grupos de pixels.
+    const v=n(wx,wy,5);
+    if(v===0){px(5,8,2,3,"#3d7042");px(7,6,2,2,"#6e9b52");}
+    if(v===1){px(24,23,3,2,"#35683d");px(26,21,2,2,"#8aab5b");}
+    if(v===2){px(14,14,2,2,"#a2b967");px(16,16,2,2,"#527d47");}
+    if(v===3){px(4,25,3,2,"#315f3b");px(7,24,2,2,"#6e9950");}
+    // Pequenas flores com miolo e folhas, espalhadas sem cobrir o caminho.
+    if(n(wx+31,wy+7,19)===0){
+      const fx=5+n(wx,wy+2,21), fy=5+n(wx+3,wy,20);
+      const col=["#f2d477","#e9e3cf","#e7a7b2","#b9c8e2"][n(wx,wy,4)];
+      px(fx,fy,3,3,col);px(fx+1,fy+1,1,1,"#fff0b5");
+      px(fx-1,fy+3,2,3,"#397447");px(fx+3,fy+3,2,2,"#397447");
+    }
+    // Folhinhas caídas e pequenas marcas de solo.
+    if(n(wx+9,wy+21,23)===0){px(18,27,4,2,"#b1a66a");px(20,26,2,1,"#d2bd78");}
+  }else if(ch==="="){
+    // Pedras irregulares e marcas de passagem na trilha.
+    if(n(wx,wy,4)!==0){px(4+n(wx,wy,17),8+n(wx+1,wy,16),3,2,"#d2bb8a");}
+    if(n(wx+5,wy+8,3)===0){px(21,24,5,2,"#806b4b");px(22,23,2,1,"#e0c795");}
+    if(n(wx+8,wy+2,5)===0){px(7,18,2,2,"#8b7652");px(9,19,2,1,"#d6c18e");}
+  }else if(ch==="~" || ch==="F"){
+    // Reflexos em faixas quebradas, como água pixelada de portátil.
+    const shift=n(wx,wy,4);
+    px(3+shift*5,7+n(wx+2,wy,9),7,1,"#a3ded4");
+    px(17-shift,19+n(wx,wy+4,7),8,1,"#6bc0c4");
+    if(n(wx+13,wy+5,4)===0){px(8,25,3,1,"#c3e8d3");}
+  }else if(ch==="t"){
+    // Copa profunda com folhas iluminadas, recortes e raízes.
+    px(4,26,24,3,"#263f32");
+    px(7,9,4,3,"#4d8950");px(12,5,5,3,"#5a9854");
+    px(21,12,4,3,"#234e36");px(8,18,3,3,"#2b603d");
+    px(17,21,4,2,"#397b46");
+    if(n(wx+4,wy+9,3)===0){px(10,10,3,2,"#8ab967");px(13,12,2,2,"#b4cf75");}
+    if(n(wx+12,wy+2,4)===0){px(20,7,3,2,"#78a95a");px(22,9,2,2,"#a4c66c");}
+    px(12,27,3,3,"#795638");px(18,27,3,3,"#68492f");
+  }else if(ch==="H"){
+    // Madeiras, telhas, janelas e moldura da entrada.
+    px(1,2,30,2,"#e0b66e");px(4,5,24,2,"#73452f");
+    px(6,13,2,14,"#e0b27a");px(24,13,2,14,"#8c5c3c");
+    px(13,20,6,2,"#a77950");px(14,22,4,7,"#49362e");
+    px(8,15,3,4,"#a9d0c6");px(22,15,3,4,"#a9d0c6");
+    if(n(wx,wy,4)===0)px(5,7,22,1,"#d69a5c");
+  }else if(ch==="R" || ch==="C"){
+    px(5,6,5,2,"#c3c8ad");px(19,10,6,2,"#778575");
+    px(7,22,4,2,"#d1d0b2");px(22,25,4,2,"#4d5b50");
+  }
+}
+
+
+function person(p,isPlayer=false){
+  const t=performance.now();
+  const step=isPlayer&&player.moving?Math.floor(t/105)%4:0;
+  const bob=isPlayer&&player.moving?(step===1||step===3?1:0):0;
+  // Sprite de 24x28 pixels, maior que a área de colisão do personagem.
+  const x=Math.round(p.x-4), y=Math.round(p.y-6+bob);
+  const px=(a,b,w,h,c)=>rect(x+a,y+b,w,h,c);
+  const face=isPlayer?(player.face||"down"):"down";
+  const skin="#f2c39b", shadow="#bd8068";
+  const hair=isPlayer?"#9b4b1e":"#392b35";
+  const shirt=isPlayer?"#d86b24":(p.color||"#89556d");
+  const light=isPlayer?"#f39a43":"#c18a9a";
+  const dark=isPlayer?"#7b351e":"#593d50";
+  const pants=isPlayer?"#d5bd8a":"#514451";
+  const leg=step===1?2:step===3?-2:0;
+  // Sombra e sapatos.
+  ctx.fillStyle="#17251e88";ctx.beginPath();
+  ctx.ellipse(x+12,y+26,10,3,0,0,Math.PI*2);ctx.fill();
+
+  if(face==="up"){
+    // Costas: cabelo em camadas, bandana e símbolo da vila.
+    px(6,18+leg,5,6,"#493a34");px(14,18-leg,5,6,"#493a34");
+    px(5,23+leg,7,3,"#3a302d");px(13,23-leg,7,3,"#3a302d");
+    px(5,12,14,9,shirt);px(3,14,3,7,light);px(18,14,3,7,dark);
+    px(7,13,10,3,light);px(9,16,6,5,dark);
+    px(5,4,14,10,hair);px(3,7,18,7,hair);
+    px(6,3,13,3,hair);px(4,8,3,6,hair);px(18,8,3,6,hair);
+    px(6,11,13,2,"#b9a36c");px(9,12,7,2,"#eee0b2");
+    px(11,14,3,4,isPlayer?"#d77c42":"#80536a");
+    px(4,16,2,4,skin);px(19,16,2,4,skin);
+  }else if(face==="left"||face==="right"){
+    const flip=face==="right";
+    const side=(a,w)=>flip?24-a-w:a;
+    px(7,19+leg,5,6,pants);px(14,19-leg,5,6,pants);
+    px(6,24+leg,7,2,"#40342f");px(13,24-leg,7,2,"#40342f");
+    px(5,12,15,9,shirt);px(3,14,4,7,light);px(18,14,3,6,dark);
+    px(7,13,10,3,light);px(11,16,5,4,dark);
+    px(8,4,11,9,skin);px(7,3,12,5,hair);px(5,5,7,8,hair);
+    px(side(16,4),7,4,4,hair);px(side(18,2),10,2,3,skin);
+    px(side(16,2),7,2,2,"#29242a");
+    px(7,11,12,2,"#b9a36c");px(10,12,7,2,"#eee0b2");
+    px(side(3,4),14,4,6,skin);px(side(3,4),18,4,2,shadow);
+    px(side(5,3),15,3,3,isPlayer?"#d77c42":"#80536a");
+    px(8,17,8,2,"#d7c69a");
+  }else{
+    // Frente: rosto, franja, olhos, bandana metálica e jaqueta ninja.
+    px(6,19+leg,5,6,pants);px(14,19-leg,5,6,pants);
+    px(5,24+leg,7,2,"#40342f");px(13,24-leg,7,2,"#40342f");
+    px(5,12,14,10,shirt);px(3,14,3,7,skin);px(18,14,3,7,skin);
+    px(4,15,3,5,light);px(18,15,3,5,dark);
+    px(7,13,10,3,light);px(10,16,5,5,dark);
+    px(8,4,9,9,skin);px(6,5,13,5,hair);
+    // Franja espetada em mechas, com pontas iluminadas em laranja.
+    px(5,4,4,5,hair);px(7,1,4,6,hair);px(11,0,4,7,hair);px(15,2,4,5,hair);
+    px(18,5,4,6,hair);px(4,8,3,4,hair);px(18,8,4,4,hair);
+    px(8,2,2,3,"#d77a2d");px(13,1,2,3,"#e58a35");px(17,4,2,3,"#c96725");
+    // Bandana azul-escura e placa metálica.
+    px(6,8,13,3,"#263b61");px(9,8,7,3,"#c6cbd0");
+    px(11,9,3,1,"#697b78");
+    // Olhos e expressão.
+    px(8,12,2,2,"#29232a");px(15,12,2,2,"#29232a");
+    px(10,16,5,1,shadow);
+    // Gola, faixa, bolsa e detalhes da roupa.
+    px(9,19,7,2,"#e3d2a3");px(11,20,3,4,"#d17a3f");
+    px(4,20,4,3,dark);px(17,20,4,3,dark);
+    px(17,16,3,4,"#b49a62");
+    px(7,22,3,2,"#a8c5c0");px(15,22,3,2,"#a8c5c0");
+  }
+  // Costuras, proteção de braço, bolsa ninja e brilho do cabelo.
+  px(4,17,3,2,"#d5bd8a");px(18,17,3,2,"#d5bd8a");
+  px(7,21,3,2,"#b49a62");px(15,21,3,2,"#b49a62");
+  px(7,4,3,2,"#51404a");px(15,4,3,2,"#51404a");
+  px(9,3,3,1,"#76606a");px(17,6,2,2,"#76606a");
+  // Contorno e pequenos pixels de luz dão leitura de sprite clássico.
+  px(5,26,14,1,"#26372e");
+  if(isPlayer){px(8,14,2,1,"#fff0ca");px(16,14,2,1,"#fff0ca");px(18,22,2,3,"#c6a66d");}
+}
+
+function drawEnemy(e){
+ if(!e.alive)return;
+ const x=Math.round(e.x-camera.x),y=Math.round(e.y-camera.y),bob=Math.sin(performance.now()/170+e.phase)*1.4;
+ ctx.fillStyle="#14251d88";ctx.beginPath();ctx.ellipse(x+9,y+19,11,3,0,0,Math.PI*2);ctx.fill();
+ if(e.kind==="boar"||e.kind==="wolf"){
+  const fur=e.kind==="boar"?"#b8793e":"#87929a",dark=e.kind==="boar"?"#75472d":"#4d5c68";
+  rect(x+2,y+6+bob,14,9,fur);rect(x+5,y+3+bob,9,7,fur);rect(x+1,y+10+bob,5,4,dark);rect(x+13,y+9+bob,5,4,dark);
+  rect(x+5,y+14+bob,3,5,dark);rect(x+12,y+14+bob,3,5,dark);rect(x+12,y+6+bob,2,2,"#f5e5b8");rect(x+15,y+7+bob,2,2,"#2a2220");
+  if(e.kind==="boar"){rect(x+16,y+11+bob,4,2,"#eee0b9");rect(x+1,y+11+bob,3,2,"#eee0b9");}
+  else{rect(x+5,y+1+bob,3,4,dark);rect(x+12,y+1+bob,3,4,dark);}
+ }else{
+  const cloth=e.kind==="shadow"?"#35334d":"#7b4b4d",light=e.kind==="shadow"?"#69628b":"#b87562";
+  rect(x+4,y+11+bob,11,7,cloth);rect(x+3,y+7+bob,13,7,light);rect(x+5,y+2+bob,10,8,"#292632");rect(x+3,y+4+bob,14,5,"#393346");
+  rect(x+6,y+8+bob,3,2,"#f1d58b");rect(x+12,y+8+bob,3,2,"#f1d58b");rect(x+4,y+17+bob,4,3,"#302b37");rect(x+12,y+17+bob,4,3,"#302b37");
+  rect(x+1,y+12+bob,4,3,light);rect(x+15,y+12+bob,4,3,light);
+ }
+ if(e.hp<e.maxHp||dist(player,e)<100){rect(x-2,y-7,22,4,"#202323");rect(x-1,y-6,20,2,"#713d3b");rect(x-1,y-6,20*Math.max(0,e.hp/e.maxHp),2,"#e45c50");}
+ if(dist(player,e)<54){ctx.fillStyle="#fff0c5";ctx.font="bold 9px system-ui";ctx.textAlign="center";ctx.fillText(e.name,x+9,y-10);}
+}
+function updateEnemies(){
+ const now=performance.now();
+ for(const e of enemies){if(!e.alive)continue;
+  const d=dist(player,e),cx=e.x+e.w/2,cy=e.y+e.h/2,px=player.x+8,py=player.y+10;
+  if(d<e.aggro&&d>25){const dx=(px-cx)/d*e.speed,dy=(py-cy)/d*e.speed;if(!solid(cx+dx,cy))e.x+=dx;if(!solid(cx,cy+dy))e.y+=dy;}
+  else if(d>=e.aggro)e.x+=Math.sin(now/850+e.phase)*.28*e.dir;
+  if(d<23&&now-(e.lastBite||0)>950){
+   e.lastBite=now;s.hp=Math.max(0,s.hp-e.damage);hitFlash=now+180;hud();say(e.name+" acertou você! Afaste-se e ataque com a espada.");
+   if(s.hp<=0){s.hp=Math.max(1,Math.floor(s.maxHp*.55));player.x=fresh.x+30;player.y=fresh.y+30;say("Você voltou à fonte e recuperou parte da vida.");}
+   save();
+  }
+ }
+}
+function swordAttack(){
+ if(dialog||battle)return;const now=performance.now();if(now<attackCooldown)return;attackCooldown=now+390;attackUntil=now+190;
+ const px=player.x+8,py=player.y+10;let target=null,best=999;
+ for(const e of enemies){if(!e.alive)continue;const dx=e.x+e.w/2-px,dy=e.y+e.h/2-py,d=Math.hypot(dx,dy);
+  const facing=player.face==="up"?dy<0:player.face==="down"?dy>0:player.face==="left"?dx<0:dx>0;
+  const aligned=player.face==="up"||player.face==="down"?Math.abs(dx)<31:Math.abs(dy)<31;
+  if(d<43&&facing&&aligned&&d<best){target=e;best=d;}
+ }
+ if(target){const damage=7+Math.floor(Math.random()*5);target.hp-=damage;say("Golpe de espada! "+target.name+" recebeu "+damage+" de dano.");
+  if(target.hp<=0){target.alive=false;s.ryos+=8+Math.floor(Math.random()*8);s.xp+=12;if(s.xp>=25){s.xp-=25;s.level++;s.maxHp+=4;s.maxChakra+=2;s.hp=Math.min(s.maxHp,s.hp+8);say(target.name+" derrotado! Você subiu de nível.");}else say(target.name+" derrotado! Você ganhou ryos e experiência.");save();hud();}
+ }else say("Você golpeou o ar. Aproxime-se de um inimigo e vire-se para ele.");
+}
+function regionAt(x,y){
+ if(x>=62)return "Floresta Profunda";
+ if(y<10)return "Cordilheira do Norte";
+ if(x<16)return "Bosque Esmeralda";
+ if(x>=48&&y<31)return "Fazenda do Leste";
+ if(y>=33)return "Praia e Lago Cristalino";
+ return "Vila da Folha";
+}
+function drawGameHUD(){
+  // Minimap: small, framed, and based on the actual explored world layout.
+  const mx=10,my=10,mw=76,mh=62;
+  rect(mx-3,my-3,mw+6,mh+6,"#101b20");rect(mx-1,my-1,mw+2,mh+2,"#d8d2ad");
+  rect(mx,my,mw,mh,"#274a39");
+  const sx=mw/C,sy=mh/R;
+  for(let gy=0;gy<R;gy+=2)for(let gx=0;gx<C;gx+=2){
+    const ch=map[gy]?.[gx]||".";let col="#5b9a50";
+    if(ch==="~")col="#318cc0";else if(ch==="B")col="#a97845";else if(ch==="t")col="#185b38";else if(ch==="R"||ch==="C")col="#89958c";else if(ch==="H")col="#a85e3e";else if(ch==="=")col="#c7a66a";
+    rect(mx+gx*sx,my+gy*sy,Math.max(1,sx*2),Math.max(1,sy*2),col);
+  }
+  rect(mx+player.x/WORLD_W*mw-2,my+player.y/WORLD_H*mh-2,5,5,"#fff02a");
+  // Main mission panel.
+  const qx=W-190,qy=10,qw=180,qh=49;
+  rect(qx+2,qy+3,qw,qh,"#10191dcc");rect(qx,qy,qw,qh,"#18252ddd");
+  ctx.strokeStyle="#e0b85d";ctx.lineWidth=2;ctx.strokeRect(qx+.5,qy+.5,qw-1,qh-1);
+  rect(qx+8,qy+9,7,7,"#ffd33f");rect(qx+10,qy+18,3,8,"#ffd33f");
+  ctx.textAlign="left";ctx.fillStyle="#ffd36a";ctx.font="bold 11px system-ui";ctx.fillText("MISSÃO PRINCIPAL",qx+25,qy+16);
+  ctx.fillStyle="#fff";ctx.font="bold 10px system-ui";
+  const mission=s.quest===0?"Fale com a Mestra Hana":s.quest===1?"Encontre Ren no bosque":"Treino concluído! Explore a vila";
+  ctx.fillText(mission,qx+25,qy+31);ctx.fillText(s.quest===0?"na Vila Ninja.":s.quest===1?"Complete o treinamento.":"Ajude a Vila da Folha.",qx+25,qy+43);
+  // Compact status card along the bottom, with readable health/chakra bars.
+  const bx=Math.round(W/2-94),by=H-43,bw=188,bh=35;
+  rect(bx,by,bw,bh,"#172329eF");ctx.strokeStyle="#d4c18b";ctx.lineWidth=1.5;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+  ctx.textAlign="left";ctx.fillStyle="#fff";ctx.font="bold 10px system-ui";ctx.fillText("LV. "+s.level,bx+8,by+12);
+  ctx.fillStyle="#d8d8d0";ctx.fillText("HP",bx+8,by+23);ctx.fillText("CH",bx+8,by+32);
+  rect(bx+28,by+16,90,6,"#3c3432");rect(bx+28,by+16,90*Math.max(0,s.hp/s.maxHp),6,"#e94b32");
+  rect(bx+28,by+25,90,6,"#263d61");rect(bx+28,by+25,90*Math.max(0,s.chakra/s.maxChakra),6,"#268de4");
+  ctx.fillStyle="#fff";ctx.font="bold 9px system-ui";ctx.fillText(s.hp+"/"+s.maxHp,bx+124,by+22);ctx.fillText(s.chakra+"/"+s.maxChakra,bx+124,by+31);
+}
+
+function draw(){
+ const tx=Math.max(0,Math.min(WORLD_W-W,player.x-W/2));
+ const ty=Math.max(0,Math.min(WORLD_H-H,player.y-H/2));camera.x=tx;camera.y=ty;
+ ctx.clearRect(0,0,W,H);
+ const sx=Math.floor(tx/T),sy=Math.floor(ty/T),ex=Math.min(C,sx+Math.ceil(W/T)+1),ey=Math.min(R,sy+Math.ceil(H/T)+1);
+ for(let y=sy;y<ey;y++)for(let x=sx;x<ex;x++)drawTile(map[y][x],x*T-tx,y*T-ty);
+ // Segunda passada: detalhes de cenário por coordenada, no estilo dos RPGs GBA.
+ for(let y=sy;y<ey;y++)for(let x=sx;x<ex;x++){
+   const ch=map[y][x];
+   drawWorldDetails(ch,x*T-tx,y*T-ty,x,y);
+ }
+
+ // Detalhes de vegetação, flores e pedras variam por coordenada e não piscam.
+ for(let y=sy;y<ey;y++)for(let x=sx;x<ex;x++){
+   const ch=map[y][x],px=x*T-tx,py=y*T-ty;
+   if(ch==="."&&((x*17+y*31)%13===0)){rect(px+7,py+9,3,3,"#f2d477");rect(px+8,py+12,2,3,"#477047");}
+   if(ch==="="&&((x*7+y*11)%9===0))rect(px+14,py+18,3,2,"#d1b77e");
+ }
+ enemies.forEach(drawEnemy);
+ person({...hana,x:hana.x-tx,y:hana.y-ty});person({...ren,x:ren.x-tx,y:ren.y-ty});for(const npc of villagers)person({...npc,x:npc.x-tx,y:npc.y-ty});person({...rogue,x:rogue.x-tx,y:rogue.y-ty});person({...player,x:player.x-tx,y:player.y-ty,color:"#477caa"},true);
+ ctx.textAlign="center";ctx.font="bold 11px system-ui";
+ for(const p of [hana,ren,...villagers,rogue])if(dist(player,p)<52){const px=p.x-tx,py=p.y-ty;rect(px-10,py-22,39,15,"#f4df9d");ctx.fillStyle="#302719";ctx.fillText("FALAR",px+9,py-11);}
+ if(Math.hypot(player.x+8-fresh.x,player.y+10-fresh.y)<48){const px=fresh.x-tx,py=fresh.y-ty;rect(px-8,py-27,48,14,"#f4df9d");ctx.fillStyle="#302719";ctx.fillText("USAR",px+16,py-16);}
+ if(Math.hypot(player.x+8-cave.x,player.y+10-cave.y)<52){const px=cave.x-tx,py=cave.y-ty;rect(px-8,py-27,64,14,"#f4df9d");ctx.fillStyle="#302719";ctx.fillText("EXPLORAR",px+24,py-16);}
+ // Partículas ambientais discretas: vaga-lumes no bosque e brilho na água.
+ const tick=performance.now();
+ for(let i=0;i<9;i++){
+   const ax=((i*83+Math.floor(tick/95)*(i%3+1))%W);
+   const ay=((i*47+Math.floor(tick/135)*(i%2+1))%H);
+   const wx=Math.floor((ax+tx)/T), wy=Math.floor((ay+ty)/T);
+   const under=map[wy]?.[wx];
+   if(under==="."||under==="g"||under==="f"){
+     const pulse=(Math.sin(tick/260+i*2)+1)/2;
+     ctx.globalAlpha=.18+pulse*.48;
+     rect(ax,ay,2,2,i%2?"#fff0a8":"#c9ef9b");
+     ctx.globalAlpha=1;
+   }
+ }
+ // Reflexos móveis no lago, sem alterar a colisão ou o mapa.
+ for(let i=0;i<5;i++){
+   const rx=(i*113+Math.floor(tick/170)*2)%W;
+   const ry=(i*37+Math.floor(tick/240))%H;
+   const wx=Math.floor((rx+tx)/T),wy=Math.floor((ry+ty)/T);
+   if(map[wy]?.[wx]==="~"){
+     ctx.globalAlpha=.45;rect(rx,ry,7,1,"#c1eee1");ctx.globalAlpha=1;
+   }
+ }
+ // Nome da região atual, como nos RPGs portáteis clássicos.
+ const reg=regionAt(player.x/T|0,player.y/T|0);if(reg!==currentRegion){currentRegion=reg;say("Você chegou a: "+reg+".");}
+ rect(9,9,Math.min(250,reg.length*8+24),25,"#172b27dd");ctx.fillStyle="#f5dfa0";ctx.textAlign="left";ctx.font="bold 12px system-ui";ctx.fillText(reg,17,26);
+ const shade=ctx.createRadialGradient(W/2,H/2,110,W/2,H/2,390);shade.addColorStop(0,"#00000000");shade.addColorStop(1,"#101b1b25");ctx.fillStyle=shade;ctx.fillRect(0,0,W,H);
+ drawGameHUD();
+}
+function show(title,body,buttons){
+ dialog=true;$("overlay").style.display="flex";
+ const box=$("dialog");box.replaceChildren();
+ const h=document.createElement("h2");h.textContent=title;box.append(h);
+ const p=document.createElement("p");p.innerHTML=body;box.append(p);
+ const row=document.createElement("div");row.className="choices";box.append(row);
+ buttons.forEach(b=>{const el=document.createElement("button");el.textContent=b.label;if(b.alt)el.className="alt";el.onclick=b.fn;row.append(el);});
+}
+function close(){dialog=false;$("overlay").style.display="none";}
+function nearby(){if(dist(player,hana)<45)return hana;if(dist(player,ren)<45)return ren;for(const p of villagers)if(dist(player,p)<45)return p;if(dist(player,rogue)<48)return rogue;return null;}
+function interact(){
+ if(dialog)return;const p=nearby();
+ if(Math.hypot(player.x+8-cave.x,player.y+10-cave.y)<52){
+  if(!s.caveLoot)show("CAVERNA DO NORTE","Você encontrou cristais de chakra entre as rochas. Explorar a entrada rendeu 20 ryos e uma poção!",[
+   {label:"Explorar",fn:()=>{s.caveLoot=true;s.ryos+=20;s.potions++;save();hud();close();say("Tesouro da caverna coletado!");}},
+   {label:"Voltar",alt:true,fn:close}]);
+  else show("CAVERNA DO NORTE","A entrada está tranquila por enquanto. Os cristais que estavam aqui já foram recolhidos.",[{label:"Sair",fn:close}]);
+  return;
+ }
+ // Colheita simples nos canteiros da Fazenda do Leste.
+ const tx=Math.floor((player.x+8)/T),ty=Math.floor((player.y+10)/T);let crop=null;
+ for(let yy=ty-1;yy<=ty+1;yy++)for(let xx=tx-1;xx<=tx+1;xx++)if(map[yy]?.[xx]==="c"&&Math.hypot((xx*T+16)-(player.x+8),(yy*T+16)-(player.y+10))<48)crop={x:xx,y:yy};
+ if(crop){world[crop.y][crop.x]=".";map[crop.y]=world[crop.y].join("");s.ryos+=5;s.harvested=(s.harvested||0)+1;save();hud();say("Você colheu uma plantação e ganhou 5 ryos!");return;}
+ if(p?.kind==="rogue"){
+  show("NINJA RENEGADO","Um invasor bloqueia a trilha do Bosque Esmeralda. Prepare-se para lutar!",[
+   {label:"Atacar",fn:()=>{close();startBattle("Ninja renegado",28);}},
+   {label:"Recuar",alt:true,fn:close}]);return;
+ }
+ if(p?.kind==="villager"){
+  const lines={"Guarda Taro":"A ponte do Rio Esmeralda liga a vila ao bosque. Fique atento aos invasores!","Nina":"A Fazenda do Leste cultiva ervas que ajudam a recuperar energia.","Explorador Kai":"Há trilhas escondidas além da floresta. Explore cada canto do mapa!"};
+  show(p.name,lines[p.name]||"Boa jornada, jovem ninja!",[{label:"Até mais",fn:close}]);return;
+ }
+ if(p?.kind==="hana"){
+  if(s.quest===0)show("Mestra Hana","A vila precisa de ajuda. Vá ao bosque e converse com Ren. Ele vai propor um treino para testar suas habilidades. Você aceita?",[
+   {label:"Aceitar missão",fn:()=>{s.quest=1;save();hud();close();say("Missão recebida: encontre Ren no bosque!");}},
+   {label:"Depois",alt:true,fn:close}]);
+  else show("Mestra Hana","Um ninja forte também protege e ajuda as pessoas da vila.",[{label:"Continuar",fn:close}]);
+ }else if(p?.kind==="ren"){
+  if(s.quest===1&&!s.won)show("Aprendiz Ren","Você chegou! Vamos fazer um treino amistoso. Escolha seus movimentos com estratégia.",[
+   {label:"Começar treino",fn:()=>{close();startBattle();}},{label:"Mais tarde",alt:true,fn:close}]);
+  else if(s.won)show("Aprendiz Ren","Você venceu nosso treino! Continue explorando e fique mais forte.",[{label:"Valeu!",fn:close}]);
+  else show("Aprendiz Ren","A Mestra Hana está perto da casa grande. Acho que ela quer falar com você.",[{label:"Entendi",fn:close}]);
+ }else say("Chegue perto da Mestra Hana ou do Ren para conversar.");
+}
+function startBattle(name="Ren",hp=22){battle=true;enemyName=name;enemyMax=hp;enemyHp=enemyMax;battleMenu();}
+function battleMenu(){
+ show("TREINO — "+enemyName,`Sua vida: <b>${s.hp}/${s.maxHp}</b> · Chakra: <b>${s.chakra}/${s.maxChakra}</b><br>Energia de Ren: <b>${Math.max(0,enemyHp)}/${enemyMax}</b>`,[
+  {label:"Golpe rápido",fn:()=>battleTurn("hit")},
+  {label:"Técnica de chakra (4)",fn:()=>battleTurn("skill")},
+  {label:"Concentrar (+4 chakra)",fn:()=>battleTurn("focus")},
+  {label:"Usar poção ("+s.potions+")",fn:()=>battleTurn("potion")},
+  {label:"Sair do treino",alt:true,fn:()=>{battle=false;close();say("Você encerrou o treino. Quando quiser, Ren estará aqui.");}}
+ ]);
+}
+function battleTurn(kind){
+ if(!battle)return;let damage=0,msg="";
+ if(kind==="hit"){damage=5+Math.floor(Math.random()*4);msg="Você acertou um golpe de treino!";}
+ if(kind==="skill"){if(s.chakra<4){say("Chakra insuficiente!");return battleMenu();}s.chakra-=4;damage=10+Math.floor(Math.random()*4);msg="Sua técnica de chakra acertou o alvo!";}
+ if(kind==="focus"){s.chakra=Math.min(s.maxChakra,s.chakra+4);msg="Você recuperou chakra.";}
+ if(kind==="potion"){if(s.potions<1){say("Você não tem poções.");return battleMenu();}s.potions--;s.hp=Math.min(s.maxHp,s.hp+12);msg="Poção usada: vida recuperada.";}
+ enemyHp-=damage;
+ if(enemyHp<=0){
+  battle=false;s.won=true;s.quest=2;s.ryos+=30;s.xp+=25;
+  if(s.xp>=25){s.xp-=25;s.level++;s.maxHp+=5;s.maxChakra+=2;s.hp=s.maxHp;s.chakra=s.maxChakra;}
+  save();hud();show("TREINO CONCLUÍDO!",msg+"<br><br>Ren reconheceu sua habilidade. Você ganhou <b>30 ryos</b> e experiência. Missão concluída!",[{label:"Continuar",fn:()=>{close();say("Missão concluída! Explore a vila.");}}]);return;
+ }
+ if(kind!=="focus")s.hp=Math.max(0,s.hp-(2+Math.floor(Math.random()*4)));
+ if(s.hp<=0){s.hp=Math.max(1,Math.floor(s.maxHp*.6));s.chakra=s.maxChakra;battle=false;save();hud();show("HORA DE DESCANSAR","O treino terminou. Você descansou e pode tentar novamente quando estiver pronto.",[{label:"Voltar",fn:()=>{close();}}]);return;}
+ save();hud();say(msg);battleMenu();
+}
+function rest(){
+ if(Math.hypot(player.x+8-fresh.x,player.y+10-fresh.y)<45){s.hp=s.maxHp;s.chakra=s.maxChakra;save();hud();say("A fonte restaurou toda sua vida e seu chakra!");}
+ else say("Aproxime-se da fonte azul para recuperar vida e chakra.");
+}
+function inventory(){show("MOCHILA",`Poções: <b>${s.potions}</b><br>Ryos: <b>${s.ryos}</b><br>Experiência: <b>${s.xp}/25</b><br>Colheitas: <b>${s.harvested||0}</b><br><br>As poções recuperam 12 pontos de vida durante o treino.`,[{label:"Fechar",fn:close}]);}
+function missions(){
+ const txt=s.quest===0?"<b>Missão principal:</b> fale com a Mestra Hana na vila.":s.quest===1?"<b>Missão principal:</b> encontre Ren no bosque e complete o treino.":"<b>Missão concluída!</b> Você ajudou a vila e venceu o treino de Ren.";
+ show("DIÁRIO DE MISSÕES",txt,[{label:"Fechar",fn:close}]);
+}
+function move(){
+ player.moving=false;
+ if(dialog)return;let dx=0,dy=0;
+ if(held.left||held.ArrowLeft||held.a)dx=-2.3;if(held.right||held.ArrowRight||held.d)dx=2.3;
+ if(held.up||held.ArrowUp||held.w)dy=-2.3;if(held.down||held.ArrowDown||held.s)dy=2.3;
+ if(dx&&dy){dx*=.707;dy*=.707;}
+ const speed=held.run?3.8:2.3;dx=dx?Math.sign(dx)*speed*(Math.abs(dx)>1?1:0):0;dy=dy?Math.sign(dy)*speed*(Math.abs(dy)>1?1:0):0;
+ if(dx||dy){
+   player.moving=true;
+   if(Math.abs(dx)>Math.abs(dy))player.face=dx<0?"left":"right";
+   else player.face=dy<0?"up":"down";
+ }
+ if(!blocked(player.x+dx,player.y))player.x+=dx;
+ if(!blocked(player.x,player.y+dy))player.y+=dy;
+ player.x=Math.max(32,Math.min(WORLD_W-48,player.x));player.y=Math.max(32,Math.min(WORLD_H-48,player.y));
+}
+function loop(){move();updateEnemies();draw();requestAnimationFrame(loop);}
+function attackButton(){
+  if(dialog)return;
+  const target=nearby();
+  if(target?.kind==="rogue"){interact();return;}
+  if(target){interact();return;}
+  swordAttack();
+}
+const stick=$("stick"),knob=$("stickKnob");let stickPointer=null;
+function stickMove(e){
+ const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+ let dx=e.clientX-cx,dy=e.clientY-cy,lim=r.width*.31,len=Math.hypot(dx,dy);
+ if(len>lim){dx=dx/len*lim;dy=dy/len*lim;}
+ knob.style.left=`${50+dx/r.width*100}%`;knob.style.top=`${50+dy/r.height*100}%`;
+ held.left=dx<-10;held.right=dx>10;held.up=dy<-10;held.down=dy>10;
+}
+stick.addEventListener("pointerdown",e=>{e.preventDefault();stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e);});
+stick.addEventListener("pointermove",e=>{if(e.pointerId===stickPointer)stickMove(e);});
+function resetStick(){stickPointer=null;held.left=held.right=held.up=held.down=false;knob.style.left="50%";knob.style.top="50%";}
+stick.addEventListener("pointerup",resetStick);stick.addEventListener("pointercancel",resetStick);
+bindHold($("runBtn"),"run");
+$("swordBtn").onclick=attackButton;
+function bindHold(el,key){
+ const start=e=>{e.preventDefault();held[key]=true;};const end=e=>{e.preventDefault();held[key]=false;};
+ el.addEventListener("pointerdown",start);el.addEventListener("pointerup",end);el.addEventListener("pointerleave",end);el.addEventListener("pointercancel",end);
+}
+document.querySelectorAll("[data-dir]").forEach(el=>bindHold(el,el.dataset.dir));
+window.addEventListener("keydown",e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;held[k]=true;if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();if(k==="e")interact();if(e.key===" ")rest();});
+window.addEventListener("keyup",e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;held[k]=false;});
+$("action").onclick=interact;$("rest").onclick=rest;$("bag").onclick=inventory;$("missions").onclick=missions;
+$("save").onclick=()=>{save();say("Progresso salvo neste navegador.");};
+$("reset").onclick=()=>show("COMEÇAR NOVAMENTE","Isso apaga o progresso salvo neste navegador. Quer mesmo reiniciar?",[
+ {label:"Reiniciar",fn:()=>{s=initial();player.x=30*T+8;player.y=21*T+8;save();hud();close();say("Novo jogo iniciado. Encontre a Mestra Hana!");}},
+ {label:"Cancelar",alt:true,fn:close}
+]);
+hud();loop();
+})();
+</script>
+</body>
+</html>
